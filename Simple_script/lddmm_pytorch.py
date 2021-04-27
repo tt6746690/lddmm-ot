@@ -21,9 +21,9 @@ from matplotlib.collections  import LineCollection
 from pyvtk import VtkData
 # from '.png' to level curves  ------------------------------------------------------------------
 from skimage.measure import find_contours
-from scipy import misc
 from scipy.ndimage.filters import gaussian_filter
 from scipy.interpolate import interp1d
+import imageio
 
 def arclength_param(line) :
 	"Arclength parametrisation of a piecewise affine curve."
@@ -50,14 +50,14 @@ def resample(line, npoints) :
 def level_curves(fname, npoints = 200, smoothing = 10, level = 0.5) :
 	"Loads regularly sampled curves from a .PNG image."
 	# Find the contour lines
-	img = misc.imread(fname, flatten = True) # Grayscale
+	img = imageio.imread(fname, as_gray = True) # Grayscale
 	img = (img.T[:, ::-1])  / 255.
 	img = gaussian_filter(img, smoothing, mode='nearest')
 	lines = find_contours(img, level)
 	
 	# Compute the sampling ratio for every contour line
 	lengths = np.array( [arclength(line) for line in lines] )
-	points_per_line = np.ceil( npoints * lengths / np.sum(lengths) )
+	points_per_line = np.ceil( npoints * lengths / np.sum(lengths) ).astype(np.int)
 	
 	# Interpolate accordingly
 	points = [] ; connec = [] ; index_offset = 0
@@ -101,7 +101,7 @@ def ShowTransport( Q, Xt, Gamma, ax ) :
 		for (seg, gij) in zip(Xt.connectivity, gi) :
 			mass_per_line = 0.05
 			if gij >= mass_per_line :
-				nlines = np.floor(gij / mass_per_line)
+				nlines = np.floor(gij / mass_per_line).astype(np.int)
 				ts     = np.linspace(.35, .65, nlines)
 				for t in ts :
 					b = (1-t) * xtpoints[seg[0]] + t * xtpoints[seg[1]]
@@ -423,7 +423,7 @@ def perform_matching( Q0, Xt, params, scale_momentum = 1, scale_attach = 1) :
 		
 		matching_problem.Info = info
 		if (matching_problem.it % 20 == 0):# and (c.data.cpu().numpy()[0] < matching_problem.bestc):
-			matching_problem.bestc = c.data.cpu().numpy()[0]
+			matching_problem.bestc = c.data.cpu().numpy() # [0]
 			q1,p1,g1 = ShootingVisualization(q0, p0, g0)
 			
 			q1 = q1.data.cpu().numpy()
@@ -467,6 +467,8 @@ def matching_demo(source_file, target_file, params, scale_mom = 1, scale_att = 1
 	p0, info = perform_matching( Q0, Xt, params, scale_mom, scale_att) 
 
 if __name__ == '__main__' :
+	import os
+	os.makedirs('output/', exist_ok=True)
 	plt.ion()
 	plt.show()
 	#matching_demo('australopithecus.vtk','sapiens.vtk', (.05,.01), scale_mom = .3,scale_att = .1)
